@@ -20,6 +20,7 @@
 #define QMATRIXCLIENT_ROOM_H
 
 #include <QtCore/QList>
+#include <QtCore/QLinkedList>
 #include <QtCore/QObject>
 #include <QtCore/QJsonObject>
 
@@ -37,11 +38,14 @@ namespace QMatrixClient
     {
             Q_OBJECT
         public:
+            template <class ItemPtrT>
+            using timeline_t = QLinkedList<ItemPtrT>;
+
             Room(Connection* connection, QString id);
             virtual ~Room();
 
             Q_INVOKABLE QString id() const;
-            Q_INVOKABLE QList<Event*> messageEvents() const;
+            Q_INVOKABLE timeline_t<Event*> messageEvents() const;
             Q_INVOKABLE QString name() const;
             Q_INVOKABLE QStringList aliases() const;
             Q_INVOKABLE QString canonicalAlias() const;

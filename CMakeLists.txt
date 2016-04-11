@@ -74,6 +74,7 @@ else ( CMAKE_VERSION VERSION_LESS "3.1" )
     target_compile_features(qmatrixclient PRIVATE cxx_nullptr)
     target_compile_features(qmatrixclient PRIVATE cxx_func_identifier)
     target_compile_features(qmatrixclient PRIVATE cxx_variadic_templates)
+    target_compile_features(qmatrixclient PRIVATE cxx_alias_templates)
 endif ( CMAKE_VERSION VERSION_LESS "3.1" )
 
 target_link_libraries(qmatrixclient Qt5::Core Qt5::Network Qt5::Gui)
