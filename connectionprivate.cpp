@@ -37,14 +37,69 @@ using namespace QMatrixClient;
 
 ConnectionPrivate::ConnectionPrivate(Connection* parent)
     : q(parent)
+    , status(Connection::Disconnected)
+    , data(nullptr)
+    , syncJob(nullptr)
 {
-    isConnected = false;
-    data = nullptr;
 }
 
 ConnectionPrivate::~ConnectionPrivate()
 {
-    delete data;
+    if (data)
+        delete data;
+}
+
+void ConnectionPrivate::setStatus(Connection::Status newStatus)
+{
+    if (status == newStatus)
+        return;
+
+    Connection::Status oldStatus = status;
+    status = newStatus;
+    qDebug() << "Switched Connection status from" << oldStatus << "to" << status;
+    emit statusChanged(status);
+}
+
+void ConnectionPrivate::invokeLogin()
+{
+    auto loginJob = q->makeJob<PasswordLogin>( username, password );
+    if (status == Connection::Disconnected)
+    {
+        status = Connection::Connecting;
+    } else {
+        status = Connection::Reconnecting;
+    }
+    connect( loginJob, &BaseJob::result, [=] () {
+        if( !loginJob->error() )
+        {
+            auto results = loginJob->results();
+            Connection::Status oldStatus = status;
+            qDebug() << "Our user ID: " << results->id;
+            q->connectWithToken(results->id, results->token);
+            if (oldStatus == Connection::Reconnecting)
+                emit q->reconnected();
+            else
+                emit q->connected();
+        }
+        else {
+            setStatus(Connection::Failed);
+            emit q->loginError( loginJob->errorString() );
+        }
+    });
+    loginJob->start();
+}
+
+SyncJob* ConnectionPrivate::startSyncJob(QString filter, int timeout)
+{
+    if (syncJob) // The previous job hasn't finished yet
+        return syncJob;
+
+    syncJob = new SyncJob(data, data->lastEvent());
+    syncJob->setFilter(filter);
+    syncJob->setTimeout(timeout);
+    connect( syncJob, &SyncJob::result, this, &ConnectionPrivate::syncDone );
+    syncJob->start();
+    return syncJob;
 }
 
 void ConnectionPrivate::resolveServer(QString domain)
@@ -116,51 +171,21 @@ Room* ConnectionPrivate::provideRoom(QString id)
     return room;
 }
 
-//void ConnectionPrivate::connectDone(KJob* job)
-//{
-//    PasswordLogin* realJob = static_cast<PasswordLogin*>(job);
-//    if( !realJob->error() )
-//    {
-//        isConnected = true;
-//        userId = realJob->id();
-//        qDebug() << "Our user ID: " << userId;
-//        emit q->connected();
-//    }
-//    else {
-//        emit q->loginError( job->errorString() );
-//    }
-//}
-
-//void ConnectionPrivate::reconnectDone(KJob* job)
-//{
-//    PasswordLogin* realJob = static_cast<PasswordLogin*>(job);
-//    if( !realJob->error() )
-//    {
-//        userId = realJob->id();
-//        emit q->reconnected();
-//    }
-//    else {
-//        emit q->loginError( job->errorString() );
-//        isConnected = false;
-//    }
-//}
-
-//void ConnectionPrivate::syncDone(KJob* job)
-//{
-//    SyncJob* syncJob = static_cast<SyncJob*>(job);
-//    if( !syncJob->error() )
-//    {
-//        data->setLastEvent(syncJob->nextBatch());
-//        processRooms(syncJob->roomData());
-//        emit q->syncDone();
-//    }
-//    else {
-//        if( syncJob->error() == BaseJob::NetworkError )
-//            emit q->connectionError( syncJob->errorString() );
-//        else
-//            qDebug() << "syncJob failed, error:" << syncJob->error();
-//    }
-//}
+void ConnectionPrivate::syncDone()
+{
+    if( !syncJob->error() )
+    {
+        data->setLastEvent(syncJob->nextBatch());
+        processRooms(syncJob->roomData());
+        syncJob = nullptr;
+        emit q->syncDone();
+    }
+    else {
+        if( syncJob->error() == SyncJob::NetworkError )
+            emit q->connectionError( syncJob->errorString() );
+    }
+    syncJob = nullptr;
+}
 
 //void ConnectionPrivate::gotJoinRoom(KJob* job)
 //{

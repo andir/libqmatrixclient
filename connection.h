@@ -37,18 +37,26 @@ namespace QMatrixClient
 
     class Connection: public QObject {
             Q_OBJECT
+            Q_PROPERTY(Status status READ status STORED false)
         public:
+            enum Status : int {
+                Disconnected = 0, Connecting, Connected, Reconnecting, Failed
+            };
+            Q_ENUMS(Status)
+
             Connection(QUrl server, QObject* parent = nullptr);
             Connection();
             virtual ~Connection();
 
             QHash<QString, Room*> roomMap() const;
-            Q_INVOKABLE virtual bool isConnected();
+            Q_INVOKABLE virtual bool isConnected() const;
+            virtual Status status() const;
 
             Q_INVOKABLE virtual void resolveServer( QString domain );
             Q_INVOKABLE virtual void connectToServer( QString user, QString password );
             Q_INVOKABLE virtual void connectWithToken( QString userId, QString token );
             Q_INVOKABLE virtual void reconnect();
+            Q_INVOKABLE virtual void disconnectFromServer();
             Q_INVOKABLE virtual SyncJob* sync(int timeout=-1);
             Q_INVOKABLE virtual void postMessage( Room* room, QString type, QString message );
             Q_INVOKABLE virtual PostReceiptJob* postReceipt( Room* room, Event* event );
@@ -72,6 +80,8 @@ namespace QMatrixClient
         signals:
             void connected();
             void reconnected();
+            void disconnected();
+
             void resolved();
             void syncDone();
             void newRoom(Room* room);
@@ -81,23 +91,22 @@ namespace QMatrixClient
             void connectionError(QString error);
             void resolveError(QString error);
             //void jobError(BaseJob* job);
-            
+
         protected:
             /**
              * Access the underlying ConnectionData class
              */
             ConnectionData* connectionData();
-            
+
             /**
              * makes it possible for derived classes to have its own User class
              */
             virtual User* createUser(QString userId);
-            
+
             /**
              * makes it possible for derived classes to have its own Room class
              */
             virtual Room* createRoom(QString roomId);
-
         private:
             friend class ConnectionPrivate;
             ConnectionPrivate* d;

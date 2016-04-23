@@ -61,24 +61,14 @@ void Connection::resolveServer(QString domain)
 
 void Connection::connectToServer(QString user, QString password)
 {
-//    PasswordLogin* loginJob = new PasswordLogin(d->data, user, password);
-    auto loginJob = makeJob<PasswordLogin>(user, password);
-    connect( loginJob, &BaseJob::success, [=] () {
-        auto results = loginJob->results();
-        qDebug() << "Our user ID: " << results->id;
-        connectWithToken(results->id, results->token);
-    });
-    connect( loginJob, &BaseJob::failure, [=] () {
-        emit loginError(loginJob->errorString());
-    });
-    loginJob->start();
     d->username = user; // to be able to reconnect
     d->password = password;
+    d->invokeLogin();
 }
 
 void Connection::connectWithToken(QString userId, QString token)
 {
-    d->isConnected = true;
+    d->setStatus(Connected);
     d->userId = userId;
     d->data->setToken(token);
     qDebug() << "Connected with token:";
@@ -88,33 +78,19 @@ void Connection::connectWithToken(QString userId, QString token)
 
 void Connection::reconnect()
 {
-    auto loginJob = makeJob<PasswordLogin>(d->username, d->password);
-    connect( loginJob, &BaseJob::success, [=] () {
-        d->userId = loginJob->results()->id;
-        emit reconnected();
-    });
-    connect( loginJob, &BaseJob::failure, [=] () {
-        emit loginError(loginJob->errorString());
-        d->isConnected = false;
-    });
-    loginJob->start();
+    d->invokeLogin();
+}
+
+void Connection::disconnectFromServer()
+{
+    d->syncJob->kill(BaseJob::Quietly);
+    d->setStatus(Disconnected);
 }
 
 SyncJob* Connection::sync(int timeout)
 {
-    QString filter = "{\"room\": { \"timeline\": { \"limit\": 100 } } }";
-    SyncJob* syncJob = new SyncJob(d->data, d->data->lastEvent());
-    syncJob->setFilter(filter);
-    syncJob->setTimeout(timeout);
-    connect( syncJob, &SyncJob::success, [=] () {
-        d->data->setLastEvent(syncJob->nextBatch());
-        d->processRooms(syncJob->roomData());
-        emit syncDone();
-    });
-    connect( syncJob, &SyncJob::failure,
-             [=] () { emit connectionError(syncJob->errorString());});
-    syncJob->start();
-    return syncJob;
+    const QString filter = "{\"room\": { \"timeline\": { \"limit\": 100 } } }";
+    return d->startSyncJob(filter, timeout);
 }
 
 void Connection::postMessage(Room* room, QString type, QString message)
@@ -198,9 +174,14 @@ QHash< QString, Room* > Connection::roomMap() const
     return d->roomMap;
 }
 
-bool Connection::isConnected()
+bool Connection::isConnected() const
 {
-    return d->isConnected;
+    return d->status == Connected;
+}
+
+Connection::Status Connection::status() const
+{
+    return d->status;
 }
 
 ConnectionData* Connection::connectionData()

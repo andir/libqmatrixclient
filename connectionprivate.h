@@ -39,11 +39,16 @@ namespace QMatrixClient
     class ConnectionPrivate : public QObject
     {
             Q_OBJECT
+            Q_PROPERTY(Connection::Status status MEMBER status WRITE setStatus NOTIFY statusChanged)
         public:
             ConnectionPrivate(Connection* parent);
             ~ConnectionPrivate();
 
             void resolveServer( QString domain );
+
+            void invokeLogin();
+            void setStatus(Connection::Status newStatus);
+            SyncJob* startSyncJob(QString filter, int timeout);
 
             void processState( State* state );
             void processRooms( const QList<SyncRoomData>& data );
@@ -54,15 +59,23 @@ namespace QMatrixClient
             ConnectionData* data;
             QHash<QString, Room*> roomMap;
             QHash<QString, User*> userMap;
-            bool isConnected;
+            Connection::Status status;
+            SyncJob* syncJob;
             QString username;
             QString password;
             QString userId;
 
+        signals:
+            /**
+             * This signal is only used to indicate a change in internal status
+             * (e.g. to reflect it in the UI). To connect any data-processing
+             * functions use connected(), reconnected() and disconnected()
+             * signals of the Connection class instead.
+             */
+            void statusChanged(Connection::Status newStatus);
+
         public slots:
-//            void connectDone(KJob* job);
-//            void reconnectDone(KJob* job);
-//            void syncDone(KJob* job);
+            void syncDone();
 //            void gotJoinRoom(KJob* job);
             void gotRoomMembers(KJob* job);
     };
