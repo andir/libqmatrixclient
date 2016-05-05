@@ -76,8 +76,8 @@ namespace QMatrixClient
 
         public slots:
             void syncDone();
-//            void gotJoinRoom(KJob* job);
-            void gotRoomMembers(KJob* job);
+//            void gotJoinRoom(BaseJob* job);
+            void gotRoomMembers(BaseJob* job);
     };
 }
 

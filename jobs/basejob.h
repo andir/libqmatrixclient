@@ -19,11 +19,13 @@
 #ifndef QMATRIXCLIENT_BASEJOB_H
 #define QMATRIXCLIENT_BASEJOB_H
 
+#if 0
 #ifdef USING_SYSTEM_KCOREADDONS
 #include <KCoreAddons/KJob>
 #else
 #include "kjob.h"
 #endif // KCOREADDONS_FOUND
+#endif
 
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
@@ -36,7 +38,7 @@ namespace QMatrixClient
 
     enum class JobHttpType { GetJob, PutJob, PostJob };
     
-    class BaseJob: public KJob
+    class BaseJob: public QObject
     {
             Q_OBJECT
         public:
@@ -44,19 +46,66 @@ namespace QMatrixClient
                     QString name, bool needsToken=true);
             virtual ~BaseJob();
 
-            void start() override;
+            void start();
 
-            enum ErrorCode { NetworkError = KJob::UserDefinedError,
-                             JsonParseError, TimeoutError, UserDefinedError };
+            /**
+             * Aborts this job.
+             *
+             * This kills and deletes the job. It is always done quietly
+             * (as opposed to KJob::kill() that can trigger emitting the result).
+             *
+             * @return true if the kill operation is succeeded, false otherwise
+             */
+            virtual bool kill();
+
+            /* The values are compatible with KJob - just in case. */
+            enum { NoError = 0, NetworkError = 100,
+                   JsonParseError, TimeoutError, UserDefinedError = 200 };
+
+            int error() const;
+            virtual QString errorString() const;
 
         signals:
             /**
-             * Emitted together with KJob::result() but only if there's no error.
+             * Emitted when the job is finished, in any case. It is used to notify
+             * observers that the job is terminated and that progress can be hidden.
+             *
+             * This should not be emitted directly by subclasses;
+             * use emitResult() instead.
+             *
+             * In general, to be notified of a job's completion, client code
+             * should connect to success() and failure()
+             * rather than finished(), so that kill() is indeed quiet.
+             * However if you store a list of jobs and they might get killed
+             * silently, then you must connect to this instead of result(),
+             * to avoid dangling pointers in your list.
+             *
+             * @param job the job that emitted this signal
+             * @internal
+             *
+             * @see success, failure
+             */
+            void finished(BaseJob* job);
+
+            /**
+             * Emitted when the job is finished (except when killed).
+             *
+             * Use error to know if the job was finished with error.
+             *
+             * @param job the job that emitted this signal
+             *
+             * @see success, failure
+             */
+            void result(BaseJob* job);
+
+            /**
+             * Emitted together with result() but only if there's no error.
              */
             void success(BaseJob*);
+
             /**
-             * Emitted together with KJob::result() if there's an error.
-             * Same as result(), this won't be emitted in case of kill(Quietly).
+             * Emitted together with result() if there's an error.
+             * Same as result(), this won't be emitted in case of kill().
              */
             void failure(BaseJob*);
 
@@ -69,6 +118,34 @@ namespace QMatrixClient
             virtual QJsonObject data() const;
             virtual void parseJson(const QJsonDocument& data);
             
+            /**
+             * Sets the error code.
+             *
+             * It should be called when an error is encountered in the job,
+             * just before calling emitResult(). Normally you might want to
+             * use fail() instead - it sets error code, error text, makes sure
+             * the job has finished and invokes emitResult after that.
+             *
+             * To extend the list of error codes, define an (anonymous) enum
+             * with additional values starting at BaseJob::UserDefinedError
+             *
+             * @param errorCode the error code
+             * @see emitResult(), fail()
+             */
+            void setError(int errorCode);
+            void setErrorText(QString errorText);
+
+            /**
+             * Utility function to emit the result signal, and suicide this job.
+             * It first notifies the observers to hide the progress for this job using
+             * the finished() signal.
+             *
+             * @note: Deletes this job using deleteLater().
+             *
+             * @see result()
+             * @see finished()
+             */
+            void emitResult();
             void fail( int errorCode, QString errorString );
             QNetworkReply* networkReply() const;
 
@@ -82,6 +159,8 @@ namespace QMatrixClient
 
 
         private:
+            void finishJob(bool emitResult);
+
             class Private;
             Private* d;
     };

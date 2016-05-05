@@ -187,7 +187,7 @@ void ConnectionPrivate::syncDone()
     syncJob = nullptr;
 }
 
-//void ConnectionPrivate::gotJoinRoom(KJob* job)
+//void ConnectionPrivate::gotJoinRoom(BaseJob* job)
 //{
 //    qDebug() << "gotJoinRoom";
 //    JoinRoomJob* joinJob = static_cast<JoinRoomJob*>(job);
@@ -203,7 +203,7 @@ void ConnectionPrivate::syncDone()
 //    }
 //}
 
-void ConnectionPrivate::gotRoomMembers(KJob* job)
+void ConnectionPrivate::gotRoomMembers(BaseJob* job)
 {
     RoomMembersJob* membersJob = static_cast<RoomMembersJob*>(job);
     if( !membersJob->error() )

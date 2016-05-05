@@ -83,7 +83,7 @@ void Connection::reconnect()
 
 void Connection::disconnectFromServer()
 {
-    d->syncJob->kill(BaseJob::Quietly);
+    d->syncJob->kill();
     d->setStatus(Disconnected);
 }
 
