@@ -5,31 +5,30 @@
 
 using namespace QMatrixClient;
 
-SimpleJob::SimpleJob(ConnectionData* conndata, JobHttpType jobType, QString name, bool needsToken)
-    : BaseJob(conndata, jobType, name, needsToken)
-{ }
-
-QVariant SimpleJob::resultItem(QString jsonKey) const
+QVariant APIResult::operator[](QString jsonKey) const
 {
-    return resultItems[jsonKey];
+    return results[jsonKey];
 }
 
-void SimpleJob::parseJson(const QJsonDocument& data)
+void APIResult::setType(QString jsonKey, QVariant::Type type)
 {
-    // If fillResult() fails it will invoke fail() from inside; but if it
-    // succeeds it will just return true, leaving room for additional
-    // processing in parseJson() overrides. Alternatively, SimpleJson::parseJson()
-    // can be called the last thing from an override, or not called at all
-    // (but then think again if you should derive from SimpleJob).
-    if (fillResult(data))
-       emitResult();
+    results[jsonKey] = QVariant(type);
 }
 
-bool SimpleJob::fillResult(const QJsonDocument& data)
+QString QMatrixClient::APIResult::parse(const QJsonDocument& data)
 {
-    QJsonObject json = data.object();
+    QStringList failedKeys = fillResult(data);
+    if (!failedKeys.isEmpty())
+        return "Failed to load keys: "+ failedKeys.join(", ");
+    
+    return QString();
+}
+
+QStringList APIResult::fillResult(const QJsonDocument& data)
+{
     QStringList failed;
-    for (auto pItem = resultItems.begin(); pItem != resultItems.end(); ++pItem)
+    QJsonObject json = data.object();
+    for (auto pItem = results.begin(); pItem != results.end(); ++pItem)
     {
         QJsonValue jsonVal = json[pItem.key()];
         if (jsonVal.type() == QJsonValue::Undefined)
@@ -43,7 +42,7 @@ bool SimpleJob::fillResult(const QJsonDocument& data)
         // type - and we need to preserve the QVariant type inside
         // the result hashmap.
         QVariant v = jsonVal.toVariant();
-        if (v.convert(pItem->type()))
+        if (v.convert(pItem->userType()))
             *pItem = v;
         else
         {
@@ -51,8 +50,6 @@ bool SimpleJob::fillResult(const QJsonDocument& data)
             failed.push_back(pItem.key());
         }
     }
-    if (!failed.empty())
-        fail(UserDefinedError, "Failed to load keys: " + failed.join(", "));
 
-    return failed.empty();
+    return failed;
 }

@@ -19,59 +19,24 @@
 #include "roommessagesjob.h"
 #include "../room.h"
 #include "../events/event.h"
-
-#include <QtCore/QJsonObject>
-#include <QtCore/QJsonArray>
+#include "../json.h"
 
 using namespace QMatrixClient;
 
-class RoomMessagesJob::Private
-{
-    public:
-        Room* room;
-        QString from;
-        FetchDirectory dir;
-        int limit;
-
-        QList<Event*> events;
-};
-
-RoomMessagesJob::RoomMessagesJob(ConnectionData* data, Room* room, QString from, FetchDirectory dir, int limit)
-    : SimpleJob(data, JobHttpType::GetJob, "RoomMessagesJob")
-    , d(new Private{room, from, dir, limit, {} })
-    , end("end", *this)
+GetRoomMessages::GetRoomMessages(Room* room, QString from, FetchDirection dir, int limit)
+    : APIParams("GetRoomMessages", JobHttpType::GetJob,
+        Endpoint(QString("/_matrix/client/r0/rooms/%1/messages").arg(room->id())),
+        Query(
+            { { "from", from }
+            , { "limit", QString::number(limit) }
+            , { "dir", dir == FetchDirection::Backwards ? "b" : "f" }
+            }
+        ))
 { }
 
-RoomMessagesJob::~RoomMessagesJob()
+GetRoomMessages::Result::Result(const QJsonDocument& data)
 {
-    delete d;
-}
-
-QList<Event*> RoomMessagesJob::events()
-{
-    return d->events;
-}
-
-QString RoomMessagesJob::apiPath() const
-{
-    return QString("/_matrix/client/r0/rooms/%1/messages").arg(d->room->id());
-}
-
-QUrlQuery RoomMessagesJob::query() const
-{
-    QUrlQuery query;
-    query.setQueryItems({
-          { "from", d->from }
-        , { "limit", QString::number(d->limit) }
-        , { "dir", d->dir == FetchDirectory::Backwards ? "b" : "f" }
-    });
-    return query;
-}
-
-void RoomMessagesJob::parseJson(const QJsonDocument& data)
-{
-    QJsonObject obj = data.object();
-    d->events = eventListFromJson(obj.value("chunk").toArray());
-    d->end = obj.value("end").toString();
-    emitResult();
+    JsonObject obj { data };
+    events = eventListFromJson(obj["chunk"].toArray());
+    obj.assign("end", &end);
 }

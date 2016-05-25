@@ -61,12 +61,14 @@ void Connection::resolveServer(QString domain)
 
 void Connection::connectToServer(QString user, QString password)
 {
-    PasswordLogin* loginJob = new PasswordLogin(d->data, user, password);
-    connect( loginJob, &PasswordLogin::success, [=] () {
-        qDebug() << "Our user ID: " << loginJob->id();
-        connectWithToken(loginJob->id(), loginJob->token());
+//    PasswordLogin* loginJob = new PasswordLogin(d->data, user, password);
+    auto loginJob = makeJob<PasswordLogin>(user, password);
+    connect( loginJob, &BaseJob::success, [=] () {
+        auto results = loginJob->results();
+        qDebug() << "Our user ID: " << results->id;
+        connectWithToken(results->id, results->token);
     });
-    connect( loginJob, &PasswordLogin::failure, [=] () {
+    connect( loginJob, &BaseJob::failure, [=] () {
         emit loginError(loginJob->errorString());
     });
     loginJob->start();
@@ -86,12 +88,12 @@ void Connection::connectWithToken(QString userId, QString token)
 
 void Connection::reconnect()
 {
-    PasswordLogin* loginJob = new PasswordLogin(d->data, d->username, d->password );
-    connect( loginJob, &PasswordLogin::success, [=] () {
-        d->userId = loginJob->id();
+    auto loginJob = makeJob<PasswordLogin>(d->username, d->password);
+    connect( loginJob, &BaseJob::success, [=] () {
+        d->userId = loginJob->results()->id;
         emit reconnected();
     });
-    connect( loginJob, &PasswordLogin::failure, [=] () {
+    connect( loginJob, &BaseJob::failure, [=] () {
         emit loginError(loginJob->errorString());
         d->isConnected = false;
     });
@@ -151,9 +153,9 @@ void Connection::getMembers(Room* room)
     job->start();
 }
 
-RoomMessagesJob* Connection::getMessages(Room* room, QString from)
+Job<GetRoomMessages>* Connection::getMessages(Room* room, QString from)
 {
-    RoomMessagesJob* job = new RoomMessagesJob(d->data, room, from);
+    auto job = makeJob<GetRoomMessages>(room, from);
     job->start();
     return job;
 }

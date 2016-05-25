@@ -73,7 +73,7 @@ class Room::Private: public QObject
         QList<User*> membersLeft;
         QHash<User*, QString> lastReadEvent;
         QString prevBatch;
-        RoomMessagesJob* roomMessagesJob;
+        Job<GetRoomMessages>* roomMessagesJob;
         
         // Convenience methods to work with the membersMap and usersLeft. addMember()
         // and removeMember() emit respective Room:: signals after a succesful
@@ -383,15 +383,15 @@ void Room::Private::getPreviousContent()
     if( !roomMessagesJob )
     {
         roomMessagesJob = connection->getMessages(q, prevBatch);
-        connect( roomMessagesJob, &RoomMessagesJob::result, [=]() {
+        connect( roomMessagesJob, &BaseJob::result, [=]() {
             if( !roomMessagesJob->error() )
             {
-                for( Event* event: roomMessagesJob->events() )
+                for( Event* event: roomMessagesJob->results()->events )
                 {
                     q->processMessageEvent(event);
                     emit q->newMessage(event);
                 }
-                prevBatch = roomMessagesJob->end();
+                prevBatch = roomMessagesJob->results()->end;
             }
             roomMessagesJob = nullptr;
         });

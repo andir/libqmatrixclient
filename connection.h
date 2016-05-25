@@ -20,6 +20,7 @@
 #define QMATRIXCLIENT_CONNECTION_H
 
 #include <QtCore/QObject>
+#include "jobs/simplejob.h"
 
 namespace QMatrixClient
 {
@@ -30,7 +31,7 @@ namespace QMatrixClient
     class ConnectionData;
 
     class SyncJob;
-    class RoomMessagesJob;
+    class GetRoomMessages;
     class PostReceiptJob;
     class MediaThumbnailJob;
 
@@ -54,13 +55,19 @@ namespace QMatrixClient
             Q_INVOKABLE virtual void joinRoom( QString roomAlias );
             Q_INVOKABLE virtual void leaveRoom( Room* room );
             Q_INVOKABLE virtual void getMembers( Room* room );
-            Q_INVOKABLE virtual RoomMessagesJob* getMessages( Room* room, QString from );
+            Q_INVOKABLE virtual Job<GetRoomMessages>* getMessages( Room* room, QString from );
             virtual MediaThumbnailJob* getThumbnail( QUrl url, int requestedWidth, int requestedHeight );
 
             Q_INVOKABLE virtual User* user(QString userId);
             Q_INVOKABLE virtual User* user();
             Q_INVOKABLE virtual QString userId();
             Q_INVOKABLE virtual QString token();
+
+            template <class ApiParamsT, class... ParamTs>
+            Job<ApiParamsT>* makeJob(ParamTs... params)
+            {
+                return Job<ApiParamsT>::make(connectionData(), params...);
+            }
 
         signals:
             void connected();

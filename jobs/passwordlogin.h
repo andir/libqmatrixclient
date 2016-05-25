@@ -23,26 +23,23 @@
 
 namespace QMatrixClient
 {
-    class ConnectionData;
-
-    class PasswordLogin : public SimpleJob
+    class PasswordLogin : public APIParams
     {
         public:
-            PasswordLogin(ConnectionData* connection, QString user, QString password);
-            virtual ~PasswordLogin();
+            PasswordLogin(QString user, QString password);
 
-            ResultItem<QString> token;
-            ResultItem<QString> id;
-            ResultItem<QString> server;
+            bool needsToken() { return false; }
 
-        protected:
-            virtual QString apiPath() override;
-            virtual QJsonObject data() override;
+            struct Result: public ResultBase
+            {
+                QString token;
+                QString id;
+                QString server;
 
-        private:
-            class Private;
-            Private* d;
+                Result(const QJsonDocument& data);
+            };
     };
+
 }
 
 #endif // QMATRIXCLIENT_PASSWORDLOGIN_H

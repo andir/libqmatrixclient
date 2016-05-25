@@ -18,39 +18,26 @@
 
 #include "passwordlogin.h"
 
+#include "../json.h"
+
 using namespace QMatrixClient;
 
-class PasswordLogin::Private
-{
-    public:
-        QString user;
-        QString password;
-};
+PasswordLogin::PasswordLogin(QString user, QString password)
+    : APIParams("PasswordLogin", JobHttpType::PostJob
+        , "_matrix/client/r0/login"
+        , Query()
+        , Data({
+            { "type", "m.login.password" },
+            { "user", user },
+            { "password", password }
+        }))
+{ }
 
-PasswordLogin::PasswordLogin(ConnectionData* connection, QString user, QString password)
-    : SimpleJob(connection, JobHttpType::PostJob, "PasswordLogin", false)
-    , d(new Private{user, password})
-    , token("access_token", *this)
-    , server("home_server", *this)
-    , id("user_id", *this)
+PasswordLogin::Result::Result(const QJsonDocument& data)
 {
-}
-
-PasswordLogin::~PasswordLogin()
-{
-    delete d;
-}
-
-QString PasswordLogin::apiPath()
-{
-    return "_matrix/client/r0/login";
-}
-
-QJsonObject PasswordLogin::data()
-{
-    QJsonObject json;
-    json.insert("type", "m.login.password");
-    json.insert("user", d->user);
-    json.insert("password", d->password);
-    return json;
+    JsonObject o { data };
+    setValid(o.contains({"access_token", "user_id", "home_server"}));
+    fill(o, "access_token", &token);
+    fill(o, "user_id", &id);
+    fill(o, "home_server", &server);
 }

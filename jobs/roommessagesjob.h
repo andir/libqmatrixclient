@@ -21,31 +21,27 @@
 
 #include "simplejob.h"
 
+#include "../events/event.h"
+
 namespace QMatrixClient
 {
     class Room;
     class Event;
 
-    enum class FetchDirectory { Backwards, Forward };
+    enum class FetchDirection { Backwards, Forward };
 
-    class RoomMessagesJob: public SimpleJob
+    class GetRoomMessages: public APIParams
     {
-            Q_OBJECT
         public:
-            RoomMessagesJob(ConnectionData* data, Room* room, QString from, FetchDirectory dir = FetchDirectory::Backwards, int limit=10);
-            virtual ~RoomMessagesJob();
+            GetRoomMessages(Room* room, QString from, FetchDirection dir = FetchDirection::Backwards, int limit=10);
 
-            QList<Event*> events();
-            ResultItem<QString> end;
-
-        protected:
-            QString apiPath() const override;
-            QUrlQuery query() const override;
-            void parseJson(const QJsonDocument& data) override;
-
-        private:
-            class Private;
-            Private* d;
+            class Result : public ResultBase
+            {
+                public:
+                    QList<Event*> events;
+                    QString end;
+                    Result(const QJsonDocument& data);
+            };
     };
 }
 
