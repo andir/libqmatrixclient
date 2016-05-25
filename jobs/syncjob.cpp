@@ -27,6 +27,7 @@
 #include "../room.h"
 #include "../connectiondata.h"
 #include "../events/event.h"
+#include "../json.h"
 
 using namespace QMatrixClient;
 
@@ -110,11 +111,10 @@ QUrlQuery SyncJob::query() const
 
 void SyncJob::parseJson(const QJsonDocument& data)
 {
-    QJsonObject json = data.object();
+    const JsonObject json = data.object();
     d->nextBatch = json.value("next_batch").toString();
     // TODO: presence
     // TODO: account_data
-    QJsonObject rooms = json.value("rooms").toObject();
 
     const struct { QString jsonKey; JoinState enumVal; } roomStates[]
     {
@@ -124,21 +124,22 @@ void SyncJob::parseJson(const QJsonDocument& data)
     };
     for (auto roomState: roomStates)
     {
-        const QJsonObject rs = rooms.value(roomState.jsonKey).toObject();
+        const JsonObject rs = json["rooms"][roomState.jsonKey];
         d->roomData.reserve(rs.size());
-        for( auto r = rs.begin(); r != rs.end(); ++r )
+        for( auto r: rs )
         {
-            d->roomData.push_back({r.key(), r.value().toObject(), roomState.enumVal});
+            d->roomData.push_back(
+                SyncRoomData(r.key(), r.value().toObject(), roomState.enumVal));
         }
     }
 
     emitResult();
 }
 
-void SyncRoomData::EventList::fromJson(const QJsonObject& roomContents)
+void SyncRoomData::EventList::fromJson(const QJsonObject& allLists)
 {
-    auto l = eventListFromJson(roomContents[jsonKey].toObject()["events"].toArray());
-    swap(l);
+    auto l = eventListFromJson(JsonNode(allLists)[jsonKey]["events"].toArray());
+    swap(l); // Only swaps QList representations, not affecting jsonKey
 }
 
 SyncRoomData::SyncRoomData(QString roomId_, const QJsonObject& room_, JoinState joinState_)

@@ -23,6 +23,7 @@
 #include <QtNetwork/QNetworkReply>
 
 #include "../connectiondata.h"
+#include "../json.h"
 
 using namespace QMatrixClient;
 
@@ -82,8 +83,8 @@ QJsonObject PasswordLogin::data() const
 
 void PasswordLogin::parseJson(const QJsonDocument& data)
 {
-    QJsonObject json = data.object();
-    if( !json.contains("access_token") || !json.contains("home_server") || !json.contains("user_id") )
+    JsonObject json = data.object();
+    if( !json.contains({"access_token", "home_server", "user_id"}) )
     {
         fail( BaseJob::UserDefinedError, "Unexpected data" );
     }

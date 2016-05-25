@@ -36,7 +36,7 @@ namespace QMatrixClient
                 QString jsonKey;
             public:
                 explicit EventList(QString k) : jsonKey(k) { }
-                void fromJson(const QJsonObject& roomContents);
+                void fromJson(const QJsonObject& allLists);
         };
 
         QString roomId;
